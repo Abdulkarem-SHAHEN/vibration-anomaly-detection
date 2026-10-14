@@ -1,0 +1,69 @@
+# =============================================================================
+# Experiment configuration
+# Every number used by the pipeline lives here, so results are reproducible
+# and nothing is "tuned by hand" inside the code.
+# =============================================================================
+
+data:
+  raw_dir: data/raw
+  # Official CWRU download location. If a download fails, get the files
+  # manually from https://engineering.case.edu/bearingdatacenter/download-data-file
+  base_url: https://engineering.case.edu/sites/default/files
+  channel: DE            # drive-end accelerometer
+  sampling_rate: 48000   # ALL selected files must share this rate (see README, "Pitfalls")
+
+  # File numbers per motor load (0-3 HP).
+  # IMPORTANT: verify these numbers against the official CWRU tables before
+  # running. Normal baseline files are recorded at 48 kHz, so the fault files
+  # below are taken from the "48k Drive End Bearing Fault Data" table.
+  normal:
+    0: 97
+    1: 98
+    2: 99
+    3: 100
+  faults:                # <type><diameter in mils>: IR = inner race, B = ball, OR = outer race (@6:00)
+    IR007: {0: 109, 1: 110, 2: 111, 3: 112}
+    B007:  {0: 122, 1: 123, 2: 124, 3: 125}
+    OR007: {0: 135, 1: 136, 2: 137, 3: 138}
+    IR014: {0: 174, 1: 175, 2: 176, 3: 177}
+    B014:  {0: 189, 1: 190, 2: 191, 3: 192}
+    OR014: {0: 201, 1: 202, 2: 203, 3: 204}
+    IR021: {0: 213, 1: 214, 2: 215, 3: 217}
+    B021:  {0: 226, 1: 227, 2: 228, 3: 229}
+    OR021: {0: 238, 1: 239, 2: 240, 3: 241}
+
+windowing:
+  window_size: 2048          # samples (~43 ms at 48 kHz, >1 shaft revolution)
+  train_stride: 1024         # 50% overlap is allowed INSIDE the training segment only
+  eval_stride: 2048          # no overlap for validation / test windows
+  gap: 2048                  # samples discarded between train / val / test segments
+  within_split: [0.6, 0.2, 0.2]   # train / val / test fractions of each normal recording
+  cross_split: [0.8, 0.2]         # train / val fractions when a whole load is held out
+  max_fault_windows_per_recording: 60
+
+features:
+  n_bands: 16            # log-spaced spectral energy bands (handcrafted features)
+  spectrum_bins: 256     # pooled log-magnitude spectrum length (autoencoder input)
+
+models:
+  isolation_forest:
+    n_estimators: 200
+  one_class_svm:
+    nu: 0.05
+    gamma: scale
+  autoencoder:
+    enabled: true        # skipped automatically if PyTorch is not installed
+    hidden: [64, 16]
+    epochs: 150
+    batch_size: 64
+    lr: 0.001
+    weight_decay: 0.00001
+    patience: 15
+
+evaluation:
+  target_fpr: 0.05       # threshold = 95th percentile of VALIDATION normal scores
+  seeds: [0, 1, 2]
+  protocols: [within_recording, cross_load]
+
+output:
+  results_dir: results

@@ -1,0 +1,9 @@
+# data is downloaded, not versioned
+data/raw/*.mat
+results_synthetic/
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.DS_Store
